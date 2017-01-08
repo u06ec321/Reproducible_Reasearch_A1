@@ -1,0 +1,88 @@
+---
+title: "Peer-graded Assignment: Course Project 1"
+author: "Bikash"
+date: "December 17, 2016"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+NOTE:-We need the ggplot2 package to run this File.
+Please use the below command in command line prompt to install ggplot2 package.
+install.packages("ggplot2")
+
+Begining of Code
+
+###Download the File and read into R
+```{r chunk to download file ,cache =TRUE}
+if(!file.exists("Confirmation Page_files")){dir.create("Confirmation Page_files")}
+setwd("Confirmation Page_files")
+fileurl<-"https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+download.file(fileurl,destfile="./repdata%2Fdata%2Factivity.zip")
+unzip("repdata%2Fdata%2Factivity.zip")
+activity<-read.csv("activity.csv",header=T,as.is=T)
+```
+###What is mean total number of steps taken per day?
+For this part of the assignment, you can ignore the missing values in the dataset.
+Calculate the total number of steps taken per day
+If you do not understand the difference between a histogram and a barplot, research the difference between them. Make a histogram of the total number of steps taken each day
+Calculate and report the mean and median of the total number of steps taken per day
+```{r chunk to calculate total number of steps per day and the mean}
+activity_a<-aggregate(x=activity$steps,by=list(activity$date),FUN=sum)
+names(activity_a)<-c("Date","Steps")
+hist(activity_a$Steps)
+```
+The mean is `r mean(activity_a$Steps,na.rm=T)` and the median is `r median(activity_a$Steps,na.rm=T)`
+
+What is the average daily activity pattern?
+Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r chunk to calculate the make the time series plot of 5 min interval and report the 5 min interval which has maximum number of steps}
+x<-complete.cases(activity)
+a<-activity[x,]
+activity_avg_steps_per_day<-aggregate(x=a$steps,by=list(a$interval),FUN=mean)
+names(activity_avg_steps_per_day)=c("interval","steps")
+plot(activity_avg_steps_per_day$interval,activity_avg_steps_per_day$steps,type="l")
+max_5_min_interval<-activity_avg_steps_per_day[activity_avg_steps_per_day$steps==max(activity_avg_steps_per_day$steps),]$interval
+max_5_min_interval_time<-paste(paste(max_5_min_interval%/%100,max_5_min_interval%%100,sep=":"),"AM",sep = " ")
+no_of_missing_values<-nrow(activity[!x,])
+```
+The time with maximum steps is `r max_5_min_interval_time` and the number of missing values is `r no_of_missing_values`
+
+
+###Imputing missing values
+Note that there are a number of days/intervals where there are missing values (coded as NA). The presence of missing days may introduce bias into some calculations or summaries of the data.
+Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+Create a new dataset that is equal to the original dataset but with the missing data filled in.
+Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+```{r chunk to impute missing values}
+merger_set<-merge(activity,activity_avg_steps_per_day,by.x="interval",by.y="interval")
+merger_set$steps.x[is.na(merger_set$steps.x)]<-merger_set$steps.y[is.na(merger_set$steps.x)]
+names(merger_set)<-c("interval","imputed_steps","date","average_steps")
+average_imputed_steps_per_day<-aggregate(x=merger_set$imputed_steps,by=list(merger_set$date),FUN=sum)
+names(average_imputed_steps_per_day)<-c("date","steps")
+hist(average_imputed_steps_per_day$steps)
+install.packages("ggplot2",dependencies=TRUE,repos = 'http://cran.r-project.org')
+```
+The mean and median after imputing the missing values is `r mean(average_imputed_steps_per_day$steps)` and `r median(average_imputed_steps_per_day$steps)` respectively.
+
+###Are there differences in activity patterns between weekdays and weekends?
+For this part the weekdays() function may be of some help here. Use the dataset with the filled-in missing values for this part.
+Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
+Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). See the README file in the GitHub repository to see an example of what this plot should look like using simulated data.
+```{r code chunk to calculate the weekdays and weekend pattern}
+merger_set$date<-as.Date(merger_set$date,"%Y-%m-%d")
+merger_set$weekday<-weekdays(merger_set$date)
+merger_set$weekday_weekend=ifelse(merger_set$weekday %in% c("Monday","Tuesday","Wednesday","Thursday","Friday"),"weekday","weekend")
+average_imputed_steps_per_weekday<-aggregate(x=merger_set$imputed_steps,by=list(merger_set$interval,merger_set$weekday),FUN=mean)
+names(average_imputed_steps_per_weekday)<-c("interval","weekday","average_steps")
+average_imputed_steps_per_weekday$weekday_weekend<-ifelse(average_imputed_steps_per_weekday$weekday %in% c("Monday","Tuesday","Wednesday","Thursday","Friday"),"weekday","weekend")
+average_imputed_steps_per_weekday$weekday_weekend<-as.factor(average_imputed_steps_per_weekday$weekday_weekend)
+
+library(ggplot2)
+average_imputed_steps_per_weekday$weekday_weekend<-as.factor(average_imputed_steps_per_weekday$weekday_weekend)
+qplot(interval,average_steps,data=average_imputed_steps_per_weekday,facets=.~weekday_weekend,geom=c("line"),xlab="Interval",ylab="Average Steps")
+```
